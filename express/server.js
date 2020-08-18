@@ -17,38 +17,45 @@ app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
  * Sends email using Send In Blue API
  * @param {*} contactForm
  */
-const sendEmail = (contactForm) => {
-  const { Email, FullName, Subject, Message } = contactForm;
-  const sendingEmail = process.env.SENDINBLUE_TO_EMAIL_ADDRESS;
-  var options = {
-    method: "POST",
-    url: "https://api.sendinblue.com/v3/smtp/email",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      "api-key": process.env.SENDINBLUE_API_KEY,
-    },
-    body: {
-      sender: { email: sendingEmail, name: process.env.SENDINBLUE_TO_NAME },
-      to: [{ email: sendingEmail, name: sendingEmail }],
-      subject: Subject,
-      htmlContent: `Email: ${Email}. FullName: ${FullName}. Message: ${Message}`,
-    },
-    json: true,
-  };
+const sendEmail = (contactForm) =>
+  new Promise((resolve, reject) => {
+    try {
+      const { Email, FullName, Subject, Message } = contactForm;
+      const sendingEmail = process.env.SENDINBLUE_TO_EMAIL_ADDRESS;
+      var options = {
+        method: "POST",
+        url: "https://api.sendinblue.com/v3/smtp/email",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          "api-key": process.env.SENDINBLUE_API_KEY,
+        },
+        body: {
+          sender: { email: sendingEmail, name: process.env.SENDINBLUE_TO_NAME },
+          to: [{ email: sendingEmail, name: sendingEmail }],
+          subject: Subject,
+          htmlContent: `Email: ${Email}. FullName: ${FullName}. Message: ${Message}`,
+        },
+        json: true,
+      };
 
-  request(options, function (error, response, body) {
-    if (error) throw new Error(error);
+      request(options, function (error, response, body) {
+        if (error) throw new Error(error);
 
-    console.log(body);
+        console.log(body);
+        resolve();
+      });
+    } catch (err) {
+      reject(err);
+    }
   });
-};
 
 /**
  * Sends email using SendInBlue API
  */
 router.post("/sendEmail", async (req, res) => {
-  var sendSmtpEmail = sendEmail(req.body);
+  var sendSmtpEmail = await sendEmail(req.body);
+  console.log("done");
   return res.json("email sent successfully");
 });
 
