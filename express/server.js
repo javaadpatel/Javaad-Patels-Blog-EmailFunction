@@ -6,15 +6,7 @@ const path = require("path");
 const serverless = require("serverless-http");
 const app = express();
 const bodyParser = require("body-parser");
-
-//setup sendinblue client
-var SibApiV3Sdk = require("sib-api-v3-sdk");
-var defaultClient = SibApiV3Sdk.ApiClient.instance;
-
-// Configure API key authorization: api-key
-var apiKey = defaultClient.authentications["api-key"];
-apiKey.apiKey = process.env.SENDINBLUE_API_KEY;
-
+const request = require("request");
 const router = express.Router();
 
 //add json parsing middleware
@@ -22,47 +14,42 @@ app.use(bodyParser.json()); // support json encoded bodies
 app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 
 /**
- * Creates an smtp email object for sending
- * @param {*} contactForm The contact form request body containing email, fullname, subject and message properties
+ * Sends email using Send In Blue API
+ * @param {*} contactForm
  */
-const composeEmail = (contactForm) => {
+const sendEmail = (contactForm) => {
   const { Email, FullName, Subject, Message } = contactForm;
-
-  var sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
   const sendingEmail = process.env.SENDINBLUE_TO_EMAIL_ADDRESS;
-
-  sendSmtpEmail.to = [
-    {
-      email: sendingEmail,
-      name: process.env.SENDINBLUE_TO_NAME,
+  var options = {
+    method: "POST",
+    url: "https://api.sendinblue.com/v3/smtp/email",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "api-key": process.env.SENDINBLUE_API_KEY,
     },
-  ];
-  sendSmtpEmail.sender = {
-    email: sendingEmail,
-    name: sendingEmail,
+    body: {
+      sender: { email: sendingEmail, name: process.env.SENDINBLUE_TO_NAME },
+      to: [{ email: sendingEmail, name: sendingEmail }],
+      subject: Subject,
+      htmlContent: `Email: ${Email}. FullName: ${FullName}. Message: ${Message}`,
+    },
+    json: true,
   };
-  sendSmtpEmail.htmlContent = `Email: ${Email}. FullName: ${FullName}. Message: ${Message}`;
-  sendSmtpEmail.subject = Subject;
 
-  return sendSmtpEmail;
+  request(options, function (error, response, body) {
+    if (error) throw new Error(error);
+
+    console.log(body);
+  });
 };
 
 /**
  * Sends email using SendInBlue API
  */
 router.post("/sendEmail", async (req, res) => {
-  var apiInstance = new SibApiV3Sdk.SMTPApi();
-
-  var sendSmtpEmail = composeEmail(req.body);
-
-  apiInstance.sendTransacEmail(sendSmtpEmail).then(
-    function (data) {
-      return res.json("email sent successfully");
-    },
-    function (error) {
-      return res.json(error);
-    }
-  );
+  var sendSmtpEmail = sendEmail(req.body);
+  return res.json("email sent successfully");
 });
 
 //add cors middleware
